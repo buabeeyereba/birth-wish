@@ -3,22 +3,30 @@ import {
   Heart,
   Trash,
   EyeSlash,
+  Eye,
   MagnifyingGlass,
   Envelope,
+  Sparkle,
+  BookOpen,
 } from '@phosphor-icons/react'
-import { Glass, SectionHeader, Chip, Button, IconButton, Sheet, Input, EmptyState, Skeleton, Avatar, Badge } from '../ui'
+import { Glass, SectionHeader, Chip, Button, Sheet, Input, EmptyState, Skeleton, Avatar, Badge } from '../ui'
 import { useToast } from '../ui/Toast'
-import { stagger, item } from '../../lib/motion'
-import { motion } from 'framer-motion'
+import { stagger, item, spring } from '../../lib/motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../../lib/supabase'
 import { toneEmoji } from '../public/WishCard'
-import type { Wish, Guest } from '../../lib/types'
+import { WishReader } from './WishReader'
+import { waUrl, birthdayShareText } from '../../lib/share'
+import type { Wish, Guest, PageType } from '../../lib/types'
 
 type WishRow = Wish & { guests: Pick<Guest, 'name' | 'relation'> | null }
 
 type WishesSectionProps = {
   celebrationId: string
   celebrantName: string
+  pageType: PageType
+  shareUrl: string
+  theme: string
 }
 
 type Filter = 'all' | 'public' | 'private' | 'favorites'
@@ -42,7 +50,16 @@ function lastSeenKey(id: string): string {
   return `birthwish:lastseen:${id}`
 }
 
-export function WishesSection({ celebrationId, celebrantName }: WishesSectionProps) {
+function formatExact(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Intl.DateTimeFormat('en', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(d)
+}
+
+export function WishesSection({ celebrationId, celebrantName, pageType, shareUrl, theme }: WishesSectionProps) {
   const { toast } = useToast()
   const [wishes, setWishes] = useState<WishRow[]>([])
   const [total, setTotal] = useState(0)
@@ -53,6 +70,7 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<WishRow | null>(null)
   const [newCount, setNewCount] = useState(0)
+  const [readerOpen, setReaderOpen] = useState(false)
   const newMarker = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -205,6 +223,24 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
     toast('Wish deleted', 'success')
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  async function deleteWithConfirm() {
+    if (!selected) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
+    await removeWish(selected)
+    setConfirmDelete(false)
+    setSelected(null)
+  }
+
+  function shareWhatsApp() {
+    const text = birthdayShareText(pageType, celebrantName, shareUrl)
+    window.open(waUrl(text), '_blank', 'noopener')
+  }
+
   const realShown = filtered.filter((w) => !w.is_hidden)
 
   return (
@@ -214,9 +250,19 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
         title={`${total} ${total === 1 ? 'wish' : 'wishes'} for ${celebrantName}`}
         caption="Tap a wish to see who sent it and manage it."
         action={
-          newCount > 0 ? (
-            <Badge tone="live">{newCount} new</Badge>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {newCount > 0 && <Badge tone="new">+{newCount} new</Badge>}
+            {realShown.length > 0 && (
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<BookOpen weight="duotone" />}
+                onClick={() => setReaderOpen(true)}
+              >
+                Read all
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -269,6 +315,18 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
                 total === 0
                   ? 'Every wish left on your page will appear here.'
                   : 'Try a different filter or search.'
+              }
+              action={
+                total === 0 ? (
+                  <Button
+                    variant="whatsapp"
+                    size="md"
+                    leftIcon={<Sparkle />}
+                    onClick={shareWhatsApp}
+                  >
+                    Share your link
+                  </Button>
+                ) : undefined
               }
             />
           </Glass>
@@ -326,24 +384,38 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
 
       <Sheet
         open={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setConfirmDelete(false)
+          setSelected(null)
+        }}
         title={selected ? 'Wish' : ''}
       >
         {selected && (
           <div>
             <div className="flex items-center gap-3">
-              <Avatar
-                name={selected.guests?.name ?? 'Anonymous'}
-                size={44}
-                ring={selected.is_favorite}
-              />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selected.id}
+                  initial={{ opacity: 0, scale: 0.6, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={spring}
+                  className="shrink-0"
+                >
+                  <Avatar
+                    name={selected.guests?.name ?? 'Anonymous'}
+                    size={52}
+                    ring={selected.is_favorite}
+                  />
+                </motion.div>
+              </AnimatePresence>
               <div className="min-w-0 flex-1">
                 <p className="font-display text-lg leading-tight text-[var(--ink-1)]">
-                  {selected.guests?.name ?? 'Anonymous'}
+                  {selected.guests?.name ? `From ${selected.guests.name}` : 'Anonymous'}
                 </p>
                 <p className="text-sm text-[var(--ink-3)]">
                   {selected.guests?.relation ?? 'No relation given'} ·{' '}
-                  {relativeTime(selected.created_at)}
+                  {formatExact(selected.created_at)}
                 </p>
               </div>
               <span className="text-2xl" aria-hidden="true">
@@ -352,7 +424,7 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
             </div>
 
             <div className="mt-4 rounded-[var(--r-md)] border border-[var(--glass-border)] bg-[var(--glass-2)] p-4">
-              <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ink-1)]">
+              <p className="whitespace-pre-wrap font-display text-lg italic leading-relaxed text-[var(--ink-1)]">
                 {selected.message}
               </p>
             </div>
@@ -365,7 +437,7 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
               {selected.is_hidden && <Badge tone="hidden">Hidden</Badge>}
             </div>
 
-            <div className="mt-6 grid grid-cols-3 gap-2">
+            <div className="mt-6 grid grid-cols-2 gap-2">
               <Button
                 variant={selected.is_favorite ? 'secondary' : 'ghost'}
                 size="md"
@@ -377,24 +449,34 @@ export function WishesSection({ celebrationId, celebrantName }: WishesSectionPro
               <Button
                 variant={selected.is_hidden ? 'primary' : 'ghost'}
                 size="md"
-                leftIcon={<EyeSlash weight="duotone" />}
+                leftIcon={selected.is_hidden ? <Eye weight="duotone" /> : <EyeSlash weight="duotone" />}
                 onClick={() => toggleHidden(selected)}
               >
-                {selected.is_hidden ? 'Unhide' : 'Hide'}
+                {selected.is_hidden ? 'Show on wall' : 'Hide from wall'}
               </Button>
-              <IconButton
-                label="Delete wish"
-                variant="danger"
+              <Button variant="ghost" size="md" disabled leftIcon={<Sparkle weight="duotone" />}>
+                Thank-you card
+              </Button>
+              <Button
+                variant={confirmDelete ? 'danger' : 'ghost'}
                 size="md"
-                className="self-start"
-                onClick={() => removeWish(selected)}
+                leftIcon={<Trash weight={confirmDelete ? 'fill' : 'duotone'} />}
+                onClick={deleteWithConfirm}
               >
-                <Trash weight="duotone" />
-              </IconButton>
+                {confirmDelete ? 'Confirm delete?' : 'Delete'}
+              </Button>
             </div>
           </div>
         )}
       </Sheet>
+
+      <WishReader
+        open={readerOpen}
+        wishes={realShown}
+        theme={theme}
+        onClose={() => setReaderOpen(false)}
+        onToggleFavorite={(w) => toggleFavorite(w)}
+      />
     </section>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { EnvelopeSimple, Trash, LockSimple } from '@phosphor-icons/react'
-import { Glass, SectionHeader, Button, IconButton, EmptyState, Skeleton } from '../ui'
+import { EnvelopeSimple, LockSimple } from '@phosphor-icons/react'
+import { Glass, SectionHeader, Button, EmptyState, Skeleton } from '../ui'
 import { useToast } from '../ui/Toast'
 import { spring } from '../../lib/motion'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -121,24 +121,17 @@ export function AnonymousSection({ celebrationId }: AnonymousSectionProps) {
   async function openMessage(id: string) {
     haptics()
     setOpening(id)
-    await supabase.from('anonymous_messages').update({ is_opened: true }).eq('id', id)
     setMessages((prev) => {
       const row = prev.find((m) => m.id === id)
       if (!row) return prev
       return prev.map((m) => (m.id === id ? { ...m, is_opened: true } : m))
     })
-    setOpening((cur) => (cur === id ? null : cur))
-  }
-
-  async function openAll() {
-    const ids = sealable.map((m) => m.id)
-    if (ids.length === 0) return
-    haptics()
-    for (const id of ids) {
-      await supabase.from('anonymous_messages').update({ is_opened: true }).eq('id', id)
+    const { error } = await supabase.from('anonymous_messages').update({ is_opened: true }).eq('id', id)
+    if (error) {
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, is_opened: false } : m)))
+      toast('Could not open that message', 'error')
     }
-    setMessages((prev) => prev.map((m) => (sealable.some((x) => x.id === m.id) ? { ...m, is_opened: true } : m)))
-    toast(`Opened ${ids.length} ${ids.length === 1 ? 'message' : 'messages'}`, 'success')
+    setOpening((cur) => (cur === id ? null : cur))
   }
 
   async function removeMessage(id: string) {
@@ -149,22 +142,57 @@ export function AnonymousSection({ celebrationId }: AnonymousSectionProps) {
     }
     setMessages((prev) => prev.filter((m) => m.id !== id))
     setShuffledOrder((prev) => prev.filter((x) => x !== id))
+    setConfirmDeleteId(null)
     toast('Message deleted', 'success')
   }
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmOpenAll, setConfirmOpenAll] = useState(false)
+
   const opened = messages.filter((m) => m.is_opened)
-  const total = messages.length
+  const unopenedCount = sealable.length
+
+  async function openAll() {
+    if (!confirmOpenAll) {
+      setConfirmOpenAll(true)
+      return
+    }
+    const ids = sealable.map((m) => m.id)
+    if (ids.length === 0) return
+    haptics()
+    setMessages((prev) =>
+      prev.map((m) => (sealable.some((x) => x.id === m.id) ? { ...m, is_opened: true } : m)),
+    )
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i]
+      await new Promise((r) => setTimeout(r, 150 * i))
+      haptics()
+      await supabase.from('anonymous_messages').update({ is_opened: true }).eq('id', id)
+    }
+    setConfirmOpenAll(false)
+    toast(`Opened ${ids.length} ${ids.length === 1 ? 'message' : 'messages'}`, 'success')
+  }
+
+  function formatDay(iso: string): string {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(d)
+  }
 
   return (
     <section aria-labelledby="dash-anon-title" className="mt-12">
       <SectionHeader
         eyebrow="Anonymous messages"
-        title={total > 0 ? `${total} sealed ${total === 1 ? 'message' : 'messages'}` : 'Anonymous messages'}
-        caption="Tap an envelope to open it."
+        title={
+          unopenedCount > 0
+            ? `${unopenedCount} sealed ${unopenedCount === 1 ? 'envelope' : 'envelopes'}`
+            : 'Anonymous messages'
+        }
+        caption="Truly anonymous. We never stored who sent these, and the order is random."
         action={
           sealable.length > 1 ? (
             <Button variant="secondary" size="md" leftIcon={<LockSimple weight="duotone" />} onClick={openAll}>
-              Open {sealable.length} all
+              {confirmOpenAll ? 'Confirm open all?' : `Open all`}
             </Button>
           ) : undefined
         }
@@ -202,15 +230,16 @@ export function AnonymousSection({ celebrationId }: AnonymousSectionProps) {
                       key={id}
                       type="button"
                       onClick={() => openMessage(id)}
-                      animate={isOpening ? { rotate: [0, -8, 8, 0], scale: 1.06 } : {}}
-                      transition={{ duration: 0.35 }}
+                      animate={isOpening ? { rotateX: [0, -60, 0], scale: 1.04 } : {}}
+                      transition={spring}
+                      style={{ transformStyle: 'preserve-3d' }}
                       className="group relative flex aspect-square flex-col items-center justify-center gap-2 rounded-[var(--r-md)] border border-[var(--glass-border)] bg-[var(--glass)] p-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] transition-transform hover:scale-[1.02] hover:bg-[var(--glass-2)]"
                     >
                       <span className="text-[var(--gold)]">
                         <EnvelopeSeal />
                       </span>
                       <span className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-3)]">
-                        {sealable.length === 1 ? 'Tap to open' : 'Tap to open'}
+                        Tap to open
                       </span>
                     </motion.button>
                   )
@@ -234,12 +263,27 @@ export function AnonymousSection({ celebrationId }: AnonymousSectionProps) {
                         transition={spring}
                         className="flex items-start justify-between gap-3 rounded-[var(--r-md)] border border-[var(--glass-border)] bg-[var(--glass)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
                       >
-                        <p className="flex-1 whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ink-1)]">
-                          {m.message}
-                        </p>
-                        <IconButton label="Delete message" variant="danger" size="md" onClick={() => removeMessage(m.id)}>
-                          <Trash weight="duotone" />
-                        </IconButton>
+                        <div className="min-w-0 flex-1">
+                          <p className="whitespace-pre-wrap font-display text-lg italic leading-relaxed text-[var(--ink-1)]">
+                            {m.message}
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--ink-3)]">
+                            Opened · {formatDay(m.created_on)}
+                          </p>
+                        </div>
+                        <Button
+                          variant={confirmDeleteId === m.id ? 'danger' : 'ghost'}
+                          size="sm"
+                          onClick={() => {
+                            if (confirmDeleteId === m.id) {
+                              removeMessage(m.id)
+                            } else {
+                              setConfirmDeleteId(m.id)
+                            }
+                          }}
+                        >
+                          {confirmDeleteId === m.id ? 'Confirm?' : 'Delete'}
+                        </Button>
                       </motion.div>
                     ))}
                   </AnimatePresence>

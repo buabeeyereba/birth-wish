@@ -1,6 +1,8 @@
-import { ArrowSquareOut, WhatsappLogo, SlidersHorizontal } from '@phosphor-icons/react'
+import { useState } from 'react'
+import { ArrowSquareOut, WhatsappLogo, SlidersHorizontal, ShareNetwork } from '@phosphor-icons/react'
 import { Glass, Badge, Button } from './ui'
 import { CopyButton } from './ui/CopyButton'
+import { ShareKitSheet } from './dashboard/ShareKitSheet'
 import { birthdayShareText, waUrl } from '../lib/share'
 import { formatBirthday } from '../lib/dates'
 import type { Celebration } from '../lib/types'
@@ -22,6 +24,7 @@ function initials(name: string): string {
 
 export function CelebrationCard({ celebration, origin, onManage }: CelebrationCardProps) {
   const url = `${origin}/${celebration.slug}`
+  const [shareKitOpen, setShareKitOpen] = useState(false)
   const coverEl = celebration.photos?.[0]
   const birthday = formatBirthday(celebration.birthday)
 
@@ -103,9 +106,24 @@ export function CelebrationCard({ celebration, origin, onManage }: CelebrationCa
             >
               Manage
             </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              leftIcon={<ShareNetwork weight="duotone" />}
+              onClick={() => setShareKitOpen(true)}
+            >
+              Share kit
+            </Button>
           </div>
         </div>
       </div>
+
+      <ShareKitSheet
+        open={shareKitOpen}
+        onClose={() => setShareKitOpen(false)}
+        celebration={celebration}
+        url={url}
+      />
     </Glass>
   )
 }

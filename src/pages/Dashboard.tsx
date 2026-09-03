@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Cake, Plus, SignOut, User, List } from '@phosphor-icons/react'
+import { Cake, Plus, SignOut, User, List, WhatsappLogo, Fire } from '@phosphor-icons/react'
 import {
   AmbientBackground,
   Glass,
@@ -16,12 +16,28 @@ import { LivePageSheet } from '../components/LivePageSheet'
 import { StatsRow } from '../components/dashboard/StatsRow'
 import { WishesSection } from '../components/dashboard/WishesSection'
 import { AnonymousSection } from '../components/dashboard/AnonymousSection'
+import { SetupChecklist } from '../components/dashboard/SetupChecklist'
 import { useAuth } from '../lib/auth'
 import { APP_NAME } from '../lib/brand'
 import { supabase } from '../lib/supabase'
+import { dateBanner } from '../lib/dates'
+import { waUrl, birthdayShareText } from '../lib/share'
 import type { Celebration } from '../lib/types'
 
 const PAGE_KEY = 'birthwish:dashboard:page'
+
+function todayCopy(
+  banner: { kind: 'today' | 'upcoming' | 'passed'; days: number },
+  celebrantName: string,
+  wishCount: number,
+): string {
+  const count = `${wishCount} ${wishCount === 1 ? 'wish' : 'wishes'}`
+  if (banner.kind === 'today') return `It's ${celebrantName}'s day! ${count} so far`
+  if (banner.kind === 'upcoming') {
+    return `${banner.days} ${banner.days === 1 ? 'day' : 'days'} to go · ${count} waiting`
+  }
+  return `Your birthday was ${banner.days} ${banner.days === 1 ? 'day' : 'days'} ago · ${count} waiting`
+}
 
 export function Dashboard() {
   const { user, signOut } = useAuth()
@@ -36,6 +52,7 @@ export function Dashboard() {
   )
   const [wishCount, setWishCount] = useState<number | null>(null)
   const [anonCount, setAnonCount] = useState<number | null>(null)
+  const [sparkline, setSparkline] = useState<number[] | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -82,12 +99,28 @@ export function Dashboard() {
   useEffect(() => {
     setWishCount(null)
     setAnonCount(null)
+    setSparkline(null)
     const celeb = activeCelebration
     if (!celeb) return
     const celebId = celeb.id
+    const tz = celeb.timezone || 'UTC'
     let active = true
     async function load() {
-      const [wishRes, anonRes] = await Promise.all([
+      const days: string[][] = []
+      for (let d = 6; d >= 0; d--) {
+        const day = new Date()
+        day.setUTCDate(day.getUTCDate() - d)
+        const key = day.toISOString().slice(0, 10)
+        const next = new Date(day)
+        next.setUTCDate(next.getUTCDate() + 1)
+        const nextKey = next.toISOString().slice(0, 10)
+        days.push([
+          `${key} 00:00:00`,
+          `${nextKey} 00:00:00`,
+        ])
+      }
+
+      const [wishRes, anonRes, sparkRes] = await Promise.all([
         supabase
           .from('wishes')
           .select('id', { count: 'exact', head: true })
@@ -96,10 +129,36 @@ export function Dashboard() {
           .from('anonymous_messages')
           .select('id', { count: 'exact', head: true })
           .eq('celebration_id', celebId),
+        supabase
+          .from('wishes')
+          .select('created_at')
+          .eq('celebration_id', celebId)
+          .gte('created_at', `${days[0][0]}`)
+          .lte('created_at', `${days[6][1]}`),
       ])
       if (!active) return
       setWishCount(wishRes.count)
       setAnonCount(anonRes.count)
+      const rows = (sparkRes.data ?? []) as { created_at: string }[]
+      const dayKey = (dt: Date) => {
+        try {
+          return new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+          }).format(dt)
+        } catch {
+          return dt.toISOString().slice(0, 10)
+        }
+      }
+      const dayLabels = days.map(([start]) => dayKey(new Date(start)))
+      const perDay = dayLabels.map(() => 0)
+      for (const row of rows) {
+        const idx = dayLabels.indexOf(dayKey(new Date(row.created_at)))
+        if (idx >= 0) perDay[idx] += 1
+      }
+      setSparkline(perDay)
     }
     load()
     return () => {
@@ -212,19 +271,95 @@ export function Dashboard() {
               </div>
 
               {activeCelebration && (
-                <div className="mt-12 flex flex-col gap-12">
+                <div className="mt-8 flex flex-col gap-10">
+                  {(() => {
+                    const banner = dateBanner(
+                      activeCelebration.birthday,
+                      activeCelebration.timezone,
+                    )
+                    if (!banner) return null
+                    const url = `${origin}/${activeCelebration.slug}`
+                    return (
+                      <Glass level={2} className="rounded-[var(--r-lg)] p-5">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-3">
+                            {banner.kind === 'today' ? (
+                              <Fire size={22} weight="duotone" className="mt-0.5 shrink-0 text-[var(--gold)]" />
+                            ) : (
+                              <span className="font-display shrink-0 text-[40px] leading-none text-[var(--gold)]">
+                                {banner.kind === 'upcoming'
+                                  ? banner.days
+                                  : `-${banner.days}`}
+                              </span>
+                            )}
+                            <div>
+                              <p
+                                className="font-display text-[20px] leading-tight text-[var(--ink-1)]"
+                                style={
+                                  banner.kind === 'today'
+                                    ? { fontStyle: 'italic' }
+                                    : undefined
+                                }
+                              >
+                                {banner.kind === 'today'
+                                  ? `It's today!`
+                                  : todayCopy(banner, activeCelebration.name, wishCount ?? 0)}
+                              </p>
+                              {banner.kind === 'today' && (
+                                <p className="text-sm text-[var(--ink-2)]">
+                                  {todayCopy(banner, activeCelebration.name, wishCount ?? 0)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="whatsapp"
+                            size="md"
+                            leftIcon={<WhatsappLogo weight="fill" />}
+                            onClick={() =>
+                              window.open(
+                                waUrl(birthdayShareText(activeCelebration.page_type, activeCelebration.name, url)),
+                                '_blank',
+                                'noopener',
+                              )
+                            }
+                          >
+                            Share on WhatsApp
+                          </Button>
+                        </div>
+                      </Glass>
+                    )
+                  })()}
+
+                  <SetupChecklist
+                    celebration={activeCelebration}
+                    wishCount={wishCount ?? 0}
+                    onHide={() => {}}
+                  />
+
                   <StatsRow
                     viewCount={activeCelebration.view_count}
                     wishCount={wishCount}
                     anonCount={anonCount}
                     shareCount={activeCelebration.share_count}
                     loading={loading}
+                    sparkline={sparkline}
                   />
-                  <WishesSection
-                    celebrationId={activeCelebration.id}
-                    celebrantName={activeCelebration.name}
-                  />
-                  <AnonymousSection celebrationId={activeCelebration.id} />
+
+                  <div className="grid gap-10 md:grid-cols-12">
+                    <div className="md:col-span-7">
+                      <WishesSection
+                        celebrationId={activeCelebration.id}
+                        celebrantName={activeCelebration.name}
+                        pageType={activeCelebration.page_type}
+                        shareUrl={`${origin}/${activeCelebration.slug}`}
+                        theme={activeCelebration.theme}
+                      />
+                    </div>
+                    <div className="md:col-span-5">
+                      <AnonymousSection celebrationId={activeCelebration.id} />
+                    </div>
+                  </div>
                 </div>
               )}
             </>
