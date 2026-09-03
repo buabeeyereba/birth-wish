@@ -1,0 +1,234 @@
+/* ============================================================
+   birth-wish — "Candlelit glass" design tokens
+   Deep warm-dark base · frosted glass · champagne gold
+   ============================================================ */
+
+:root {
+  /* App-shell base */
+  --bg-0: #0e0b12;
+  --bg-1: #161220;
+  --bg-2: #1f192b;
+
+  /* Ambient */
+  --ember: #ff7a59;
+  --gold: #e8c170;
+  --gold-2: #f3d48f;
+  --gold-deep: #b8893a;
+  --wine: #8e2f4f;
+
+  /* Glass */
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-2: rgba(255, 255, 255, 0.1);
+  --glass-3: rgba(255, 255, 255, 0.14);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-2: rgba(255, 255, 255, 0.2);
+  --glass-blur: 18px;
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+
+  /* Text */
+  --ink-1: #f6f1e8;
+  --ink-2: #cfc8d8;
+  --ink-3: #948da3;
+
+  /* Semantic */
+  --success: #7dd3a0;
+  --danger: #ff6b6b;
+  --info: #8fb8ff;
+  --whatsapp: #25d366;
+
+  /* Focus */
+  --focus: 0 0 0 3px rgba(232, 193, 112, 0.38);
+
+  /* Shape */
+  --r-sm: 14px;
+  --r-md: 20px;
+  --r-lg: 28px;
+  --r-xl: 36px;
+
+  /* Shadow */
+  --shadow-float: 0 24px 70px -30px rgba(0, 0, 0, 0.65);
+}
+
+/* Primary action colour is SOLID gold with --bg-0 text. No gradient buttons. */
+html {
+  --accent: #e8c170;
+  --on-accent: #0e0b12;
+}
+
+/* ---- Celebration themes (public pages + share card) ---- */
+[data-theme='sunset'] {
+  --bg-0: #1a0f14;
+  --accent: #f3d48f;
+  --on-accent: #1a0f14;
+}
+[data-theme='midnight'] {
+  --bg-0: #090e1e;
+  --accent: #7fe0d0;
+  --on-accent: #071018;
+}
+[data-theme='garden'] {
+  --bg-0: #f4f0e8;
+  --glass: rgba(255, 255, 255, 0.55);
+  --glass-2: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(30, 27, 38, 0.08);
+  --glass-border-2: rgba(30, 27, 38, 0.16);
+  --ink-1: #1e1b26;
+  --ink-2: #4a4556;
+  --ink-3: #7a7487;
+  --accent: #2f6b4f;
+  --on-accent: #f4f0e8;
+  --focus: 0 0 0 3px rgba(47, 107, 79, 0.3);
+}
+[data-theme='anonymous'] {
+  --bg-0: #08070b;
+  --accent: #e8c170;
+  --on-accent: #0e0b12;
+}
+
+/* ---- Base ---- */
+body {
+  background: var(--bg-0);
+  color: var(--ink-1);
+}
+
+/* ---- Ambient blobs (radial-gradient, no filter blur on large elements) ---- */
+.ambient-base {
+  position: relative;
+  background-color: var(--bg-0);
+  background-image: radial-gradient(
+      640px 640px at 18% 8%,
+      rgba(255, 122, 89, 0.32),
+      transparent 62%
+    ),
+    radial-gradient(520px 520px at 88% 20%, rgba(232, 193, 112, 0.2), transparent 60%),
+    radial-gradient(720px 720px at 55% 100%, rgba(142, 47, 79, 0.22), transparent 65%);
+}
+[data-theme='sunset'] .ambient-base,
+[data-theme='sunset'].ambient-base {
+  background-color: var(--bg-0);
+  background-image: radial-gradient(
+      640px 640px at 18% 8%,
+      rgba(255, 122, 89, 0.34),
+      transparent 62%
+    ),
+    radial-gradient(560px 560px at 85% 18%, rgba(232, 193, 112, 0.24), transparent 60%),
+    radial-gradient(720px 720px at 55% 100%, rgba(142, 47, 79, 0.26), transparent 65%);
+}
+[data-theme='midnight'] .ambient-base,
+[data-theme='midnight'].ambient-base {
+  background-color: var(--bg-0);
+  background-image: radial-gradient(
+      640px 640px at 18% 8%,
+      rgba(52, 84, 209, 0.3),
+      transparent 62%
+    ),
+    radial-gradient(600px 600px at 85% 20%, rgba(47, 184, 166, 0.22), transparent 60%),
+    radial-gradient(720px 720px at 55% 100%, rgba(20, 30, 80, 0.3), transparent 65%);
+}
+[data-theme='garden'] .ambient-base,
+[data-theme='garden'].ambient-base {
+  background-color: var(--bg-0);
+  background-image: radial-gradient(
+      640px 640px at 18% 8%,
+      rgba(191, 227, 180, 0.5),
+      transparent 62%
+    ),
+    radial-gradient(600px 600px at 85% 20%, rgba(249, 207, 221, 0.5), transparent 60%),
+    radial-gradient(720px 720px at 55% 100%, rgba(191, 227, 180, 0.4), transparent 65%);
+}
+[data-theme='anonymous'] .ambient-base,
+[data-theme='anonymous'].ambient-base {
+  background-color: var(--bg-0);
+  background-image: radial-gradient(
+    640px 640px at 22% 12%,
+    rgba(142, 47, 79, 0.22),
+    transparent 62%
+  );
+}
+
+/* ---- Film grain overlay ---- */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- Focus rings ---- */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--r-sm);
+}
+
+/* ---- Ambient drift ---- */
+@keyframes bw-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -22px, 0);
+  }
+}
+.ambient-drift {
+  animation: bw-drift 6s ease-in-out infinite;
+}
+.ambient-slow {
+  animation: bw-drift 9s ease-in-out infinite;
+}
+.ambient-slower {
+  animation: bw-drift 13s ease-in-out infinite;
+}
+@keyframes bw-blob-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(24px, -16px, 0) scale(1.06);
+  }
+}
+.ambient-blob {
+  animation: bw-blob-drift 30s ease-in-out infinite;
+}
+
+/* ---- Shimmer for skeletons ---- */
+@keyframes bw-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---- No backdrop-filter fallback: more opaque glass ---- */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-blur {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  .glass-blur-2 {
+    background-color: rgba(255, 255, 255, 0.16) !important;
+  }
+  .glass-blur-3 {
+    background-color: rgba(255, 255, 255, 0.22) !important;
+  }
+  [data-theme='garden'] .glass-blur {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+  }
+}
+
+/* ---- Reduced motion: kill drift, shimmer stays static ---- */
+@media (prefers-reduced-motion: reduce) {
+  .ambient-blob,
+  .ambient-drift,
+  .ambient-slow,
+  .ambient-slower {
+    animation: none !important;
+  }
+}

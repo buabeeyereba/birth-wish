@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+@import './styles/tokens.css';
+
+@theme {
+  --font-display: 'Instrument Serif', 'Noto Sans Thai', system-ui, serif;
+  --font-sans: 'Manrope', 'Noto Sans Thai', system-ui, sans-serif;
+
+  --color-bg-0: #0e0b12;
+  --color-bg-1: #161220;
+  --color-bg-2: #1f192b;
+  --color-ember: #ff7a59;
+  --color-gold: #e8c170;
+  --color-gold-2: #f3d48f;
+  --color-gold-deep: #b8893a;
+  --color-wine: #8e2f4f;
+  --color-ink-1: #f6f1e8;
+  --color-ink-2: #cfc8d8;
+  --color-ink-3: #948da3;
+  --color-success: #7dd3a0;
+  --color-danger: #ff6b6b;
+  --color-info: #8fb8ff;
+  --color-whatsapp: #25d366;
+
+  --radius-sm: 14px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 36px;
+
+  --shadow-float: 0 24px 70px -30px rgba(0, 0, 0, 0.65);
+}
+
+:root {
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--ink-1);
+  background: var(--bg-0);
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Serif display helper */
+.font-display {
+  font-family: var(--font-display);
+}
